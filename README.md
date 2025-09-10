@@ -1,8 +1,19 @@
-Full Stack Project(College Major Project)
-• Developed an AI-powered interview prep platform using React, Firebase, and Google Gemini AI.
-• Built responsive UI with JavaScript, ShadCN UI, and Tailwind CSS.
-• Deployed full-stack solution using Firebase Hosting and Cloud Functions
-• Integrated speech-to-text (Web Speech API) and text-to-speech for accessibility with OAuth authentication for enhanced
-user experience
-• NoSQL database with Firestore to store user profiles, interview history, and AI feedback
-• Tech Stack: React, TypeScript, Firebase, Gemini AI, Tailwind CSS.
+# @babel/core
+
+> Babel compiler core.
+
+See our website [@babel/core](https://babeljs.io/docs/babel-core) for more information or the [issues](https://github.com/babel/babel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3A%22pkg%3A%20core%22+is%3Aopen) associated with this package.
+
+## Install
+
+Using npm:
+
+```sh
+npm install --save-dev @babel/core
+```
+
+or using yarn:
+
+```sh
+yarn add @babel/core --dev
+```
