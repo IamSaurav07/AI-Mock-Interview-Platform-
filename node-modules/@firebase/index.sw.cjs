@@ -24,16 +24,14 @@ var app = require('@firebase/app');
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const DEFAULT_SW_PATH = '/firebase-messaging-sw.js';
-const DEFAULT_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
 const DEFAULT_VAPID_KEY = 'BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4';
 const ENDPOINT = 'https://fcmregistrations.googleapis.com/v1';
+/** Key of FCM Payload in Notification's data field. */
+const FCM_MSG = 'FCM_MSG';
 const CONSOLE_CAMPAIGN_ID = 'google.c.a.c_id';
-const CONSOLE_CAMPAIGN_NAME = 'google.c.a.c_l';
-const CONSOLE_CAMPAIGN_TIME = 'google.c.a.ts';
-/** Set to '1' if Analytics is enabled for the campaign */
-const CONSOLE_CAMPAIGN_ANALYTICS_ENABLED = 'google.c.a.e';
-const DEFAULT_REGISTRATION_TIMEOUT = 10000;
+// Defined as in proto/messaging_event.proto. Neglecting fields that are supported.
+const SDK_PLATFORM_WEB = 3;
+const EVENT_MESSAGE_DELIVERED = 1;
 var MessageType$1;
 (function (MessageType) {
     MessageType[MessageType["DATA_MESSAGE"] = 1] = "DATA_MESSAGE";
@@ -700,7 +698,87 @@ function isConsoleMessage(data) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/** Returns a promise that resolves after given time passes. */
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
+
+/**
+ * @license
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 _mergeStrings('AzSCbw63g1R0nCw85jG8', 'Iaya3yLKwmgvh7cF0q4');
+async function stageLog(messaging, internalPayload) {
+    const fcmEvent = createFcmEvent(internalPayload, await messaging.firebaseDependencies.installations.getId());
+    createAndEnqueueLogEvent(messaging, fcmEvent, internalPayload.productId);
+}
+function createFcmEvent(internalPayload, fid) {
+    var _a, _b;
+    const fcmEvent = {};
+    /* eslint-disable camelcase */
+    // some fields should always be non-null. Still check to ensure.
+    if (!!internalPayload.from) {
+        fcmEvent.project_number = internalPayload.from;
+    }
+    if (!!internalPayload.fcmMessageId) {
+        fcmEvent.message_id = internalPayload.fcmMessageId;
+    }
+    fcmEvent.instance_id = fid;
+    if (!!internalPayload.notification) {
+        fcmEvent.message_type = MessageType$1.DISPLAY_NOTIFICATION.toString();
+    }
+    else {
+        fcmEvent.message_type = MessageType$1.DATA_MESSAGE.toString();
+    }
+    fcmEvent.sdk_platform = SDK_PLATFORM_WEB.toString();
+    fcmEvent.package_name = self.origin.replace(/(^\w+:|^)\/\//, '');
+    if (!!internalPayload.collapse_key) {
+        fcmEvent.collapse_key = internalPayload.collapse_key;
+    }
+    fcmEvent.event = EVENT_MESSAGE_DELIVERED.toString();
+    if (!!((_a = internalPayload.fcmOptions) === null || _a === void 0 ? void 0 : _a.analytics_label)) {
+        fcmEvent.analytics_label = (_b = internalPayload.fcmOptions) === null || _b === void 0 ? void 0 : _b.analytics_label;
+    }
+    /* eslint-enable camelcase */
+    return fcmEvent;
+}
+function createAndEnqueueLogEvent(messaging, fcmEvent, productId) {
+    const logEvent = {};
+    /* eslint-disable camelcase */
+    logEvent.event_time_ms = Math.floor(Date.now()).toString();
+    logEvent.source_extension_json_proto3 = JSON.stringify({
+        messaging_client_event: fcmEvent
+    });
+    if (!!productId) {
+        logEvent.compliance_data = buildComplianceData(productId);
+    }
+    // eslint-disable-next-line camelcase
+    messaging.logEvents.push(logEvent);
+}
+function buildComplianceData(productId) {
+    const complianceData = {
+        privacy_context: {
+            prequest: {
+                origin_associated_product_id: productId
+            }
+        }
+    };
+    return complianceData;
+}
 function _mergeStrings(s1, s2) {
     const resultArray = [];
     for (let i = 0; i < s1.length; i++) {
@@ -710,6 +788,199 @@ function _mergeStrings(s1, s2) {
         }
     }
     return resultArray.join('');
+}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+async function onSubChange(event, messaging) {
+    var _a, _b;
+    const { newSubscription } = event;
+    if (!newSubscription) {
+        // Subscription revoked, delete token
+        await deleteTokenInternal(messaging);
+        return;
+    }
+    const tokenDetails = await dbGet(messaging.firebaseDependencies);
+    await deleteTokenInternal(messaging);
+    messaging.vapidKey =
+        (_b = (_a = tokenDetails === null || tokenDetails === void 0 ? void 0 : tokenDetails.subscriptionOptions) === null || _a === void 0 ? void 0 : _a.vapidKey) !== null && _b !== void 0 ? _b : DEFAULT_VAPID_KEY;
+    await getTokenInternal(messaging);
+}
+async function onPush(event, messaging) {
+    const internalPayload = getMessagePayloadInternal(event);
+    if (!internalPayload) {
+        // Failed to get parsed MessagePayload from the PushEvent. Skip handling the push.
+        return;
+    }
+    // log to Firelog with user consent
+    if (messaging.deliveryMetricsExportedToBigQueryEnabled) {
+        await stageLog(messaging, internalPayload);
+    }
+    // foreground handling: eventually passed to onMessage hook
+    const clientList = await getClientList();
+    if (hasVisibleClients(clientList)) {
+        return sendMessagePayloadInternalToWindows(clientList, internalPayload);
+    }
+    // background handling: display if possible and pass to onBackgroundMessage hook
+    if (!!internalPayload.notification) {
+        await showNotification(wrapInternalPayload(internalPayload));
+    }
+    if (!messaging) {
+        return;
+    }
+    if (!!messaging.onBackgroundMessageHandler) {
+        const payload = externalizePayload(internalPayload);
+        if (typeof messaging.onBackgroundMessageHandler === 'function') {
+            await messaging.onBackgroundMessageHandler(payload);
+        }
+        else {
+            messaging.onBackgroundMessageHandler.next(payload);
+        }
+    }
+}
+async function onNotificationClick(event) {
+    var _a, _b;
+    const internalPayload = (_b = (_a = event.notification) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b[FCM_MSG];
+    if (!internalPayload) {
+        return;
+    }
+    else if (event.action) {
+        // User clicked on an action button. This will allow developers to act on action button clicks
+        // by using a custom onNotificationClick listener that they define.
+        return;
+    }
+    // Prevent other listeners from receiving the event
+    event.stopImmediatePropagation();
+    event.notification.close();
+    // Note clicking on a notification with no link set will focus the Chrome's current tab.
+    const link = getLink(internalPayload);
+    if (!link) {
+        return;
+    }
+    // FM should only open/focus links from app's origin.
+    const url = new URL(link, self.location.href);
+    const originUrl = new URL(self.location.origin);
+    if (url.host !== originUrl.host) {
+        return;
+    }
+    let client = await getWindowClient(url);
+    if (!client) {
+        client = await self.clients.openWindow(link);
+        // Wait three seconds for the client to initialize and set up the message handler so that it
+        // can receive the message.
+        await sleep(3000);
+    }
+    else {
+        client = await client.focus();
+    }
+    if (!client) {
+        // Window Client will not be returned if it's for a third party origin.
+        return;
+    }
+    internalPayload.messageType = MessageType.NOTIFICATION_CLICKED;
+    internalPayload.isFirebaseMessaging = true;
+    return client.postMessage(internalPayload);
+}
+function wrapInternalPayload(internalPayload) {
+    const wrappedInternalPayload = Object.assign({}, internalPayload.notification);
+    // Put the message payload under FCM_MSG name so we can identify the notification as being an FCM
+    // notification vs a notification from somewhere else (i.e. normal web push or developer generated
+    // notification).
+    wrappedInternalPayload.data = {
+        [FCM_MSG]: internalPayload
+    };
+    return wrappedInternalPayload;
+}
+function getMessagePayloadInternal({ data }) {
+    if (!data) {
+        return null;
+    }
+    try {
+        return data.json();
+    }
+    catch (err) {
+        // Not JSON so not an FCM message.
+        return null;
+    }
+}
+/**
+ * @param url The URL to look for when focusing a client.
+ * @return Returns an existing window client or a newly opened WindowClient.
+ */
+async function getWindowClient(url) {
+    const clientList = await getClientList();
+    for (const client of clientList) {
+        const clientUrl = new URL(client.url, self.location.href);
+        if (url.host === clientUrl.host) {
+            return client;
+        }
+    }
+    return null;
+}
+/**
+ * @returns If there is currently a visible WindowClient, this method will resolve to true,
+ * otherwise false.
+ */
+function hasVisibleClients(clientList) {
+    return clientList.some(client => client.visibilityState === 'visible' &&
+        // Ignore chrome-extension clients as that matches the background pages of extensions, which
+        // are always considered visible for some reason.
+        !client.url.startsWith('chrome-extension://'));
+}
+function sendMessagePayloadInternalToWindows(clientList, internalPayload) {
+    internalPayload.isFirebaseMessaging = true;
+    internalPayload.messageType = MessageType.PUSH_RECEIVED;
+    for (const client of clientList) {
+        client.postMessage(internalPayload);
+    }
+}
+function getClientList() {
+    return self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+        // TS doesn't know that "type: 'window'" means it'll return WindowClient[]
+    });
+}
+function showNotification(notificationPayloadInternal) {
+    var _a;
+    // Note: Firefox does not support the maxActions property.
+    // https://developer.mozilla.org/en-US/docs/Web/API/notification/maxActions
+    const { actions } = notificationPayloadInternal;
+    const { maxActions } = Notification;
+    if (actions && maxActions && actions.length > maxActions) {
+        console.warn(`This browser only supports ${maxActions} actions. The remaining actions will not be displayed.`);
+    }
+    return self.registration.showNotification(
+    /* title= */ (_a = notificationPayloadInternal.title) !== null && _a !== void 0 ? _a : '', notificationPayloadInternal);
+}
+function getLink(payload) {
+    var _a, _b, _c;
+    // eslint-disable-next-line camelcase
+    const link = (_b = (_a = payload.fcmOptions) === null || _a === void 0 ? void 0 : _a.link) !== null && _b !== void 0 ? _b : (_c = payload.notification) === null || _c === void 0 ? void 0 : _c.click_action;
+    if (link) {
+        return link;
+    }
+    if (isConsoleMessage(payload.data)) {
+        // Notification created in the Firebase Console. Redirect to origin.
+        return self.location.origin;
+    }
+    else {
+        return null;
+    }
 }
 
 /**
@@ -815,262 +1086,26 @@ class MessagingService {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-async function registerDefaultSw(messaging) {
-    try {
-        messaging.swRegistration = await navigator.serviceWorker.register(DEFAULT_SW_PATH, {
-            scope: DEFAULT_SW_SCOPE
-        });
-        // The timing when browser updates sw when sw has an update is unreliable from experiment. It
-        // leads to version conflict when the SDK upgrades to a newer version in the main page, but sw
-        // is stuck with the old version. For example,
-        // https://github.com/firebase/firebase-js-sdk/issues/2590 The following line reliably updates
-        // sw if there was an update.
-        messaging.swRegistration.update().catch(() => {
-            /* it is non blocking and we don't care if it failed */
-        });
-        await waitForRegistrationActive(messaging.swRegistration);
-    }
-    catch (e) {
-        throw ERROR_FACTORY.create("failed-service-worker-registration" /* ErrorCode.FAILED_DEFAULT_REGISTRATION */, {
-            browserErrorMessage: e === null || e === void 0 ? void 0 : e.message
-        });
-    }
-}
-/**
- * Waits for registration to become active. MDN documentation claims that
- * a service worker registration should be ready to use after awaiting
- * navigator.serviceWorker.register() but that doesn't seem to be the case in
- * practice, causing the SDK to throw errors when calling
- * swRegistration.pushManager.subscribe() too soon after register(). The only
- * solution seems to be waiting for the service worker registration `state`
- * to become "active".
- */
-async function waitForRegistrationActive(registration) {
-    return new Promise((resolve, reject) => {
-        const rejectTimeout = setTimeout(() => reject(new Error(`Service worker not registered after ${DEFAULT_REGISTRATION_TIMEOUT} ms`)), DEFAULT_REGISTRATION_TIMEOUT);
-        const incomingSw = registration.installing || registration.waiting;
-        if (registration.active) {
-            clearTimeout(rejectTimeout);
-            resolve();
-        }
-        else if (incomingSw) {
-            incomingSw.onstatechange = ev => {
-                var _a;
-                if (((_a = ev.target) === null || _a === void 0 ? void 0 : _a.state) === 'activated') {
-                    incomingSw.onstatechange = null;
-                    clearTimeout(rejectTimeout);
-                    resolve();
-                }
-            };
-        }
-        else {
-            clearTimeout(rejectTimeout);
-            reject(new Error('No incoming service worker found.'));
-        }
-    });
-}
-
-/**
- * @license
- * Copyright 2020 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-async function updateSwReg(messaging, swRegistration) {
-    if (!swRegistration && !messaging.swRegistration) {
-        await registerDefaultSw(messaging);
-    }
-    if (!swRegistration && !!messaging.swRegistration) {
-        return;
-    }
-    if (!(swRegistration instanceof ServiceWorkerRegistration)) {
-        throw ERROR_FACTORY.create("invalid-sw-registration" /* ErrorCode.INVALID_SW_REGISTRATION */);
-    }
-    messaging.swRegistration = swRegistration;
-}
-
-/**
- * @license
- * Copyright 2020 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-async function updateVapidKey(messaging, vapidKey) {
-    if (!!vapidKey) {
-        messaging.vapidKey = vapidKey;
-    }
-    else if (!messaging.vapidKey) {
-        messaging.vapidKey = DEFAULT_VAPID_KEY;
-    }
-}
-
-/**
- * @license
- * Copyright 2020 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-async function getToken$1(messaging, options) {
-    if (!navigator) {
-        throw ERROR_FACTORY.create("only-available-in-window" /* ErrorCode.AVAILABLE_IN_WINDOW */);
-    }
-    if (Notification.permission === 'default') {
-        await Notification.requestPermission();
-    }
-    if (Notification.permission !== 'granted') {
-        throw ERROR_FACTORY.create("permission-blocked" /* ErrorCode.PERMISSION_BLOCKED */);
-    }
-    await updateVapidKey(messaging, options === null || options === void 0 ? void 0 : options.vapidKey);
-    await updateSwReg(messaging, options === null || options === void 0 ? void 0 : options.serviceWorkerRegistration);
-    return getTokenInternal(messaging);
-}
-
-/**
- * @license
- * Copyright 2019 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-async function logToScion(messaging, messageType, data) {
-    const eventType = getEventType(messageType);
-    const analytics = await messaging.firebaseDependencies.analyticsProvider.get();
-    analytics.logEvent(eventType, {
-        /* eslint-disable camelcase */
-        message_id: data[CONSOLE_CAMPAIGN_ID],
-        message_name: data[CONSOLE_CAMPAIGN_NAME],
-        message_time: data[CONSOLE_CAMPAIGN_TIME],
-        message_device_time: Math.floor(Date.now() / 1000)
-        /* eslint-enable camelcase */
-    });
-}
-function getEventType(messageType) {
-    switch (messageType) {
-        case MessageType.NOTIFICATION_CLICKED:
-            return 'notification_open';
-        case MessageType.PUSH_RECEIVED:
-            return 'notification_foreground';
-        default:
-            throw new Error();
-    }
-}
-
-/**
- * @license
- * Copyright 2017 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-async function messageEventListener(messaging, event) {
-    const internalPayload = event.data;
-    if (!internalPayload.isFirebaseMessaging) {
-        return;
-    }
-    if (messaging.onMessageHandler &&
-        internalPayload.messageType === MessageType.PUSH_RECEIVED) {
-        if (typeof messaging.onMessageHandler === 'function') {
-            messaging.onMessageHandler(externalizePayload(internalPayload));
-        }
-        else {
-            messaging.onMessageHandler.next(externalizePayload(internalPayload));
-        }
-    }
-    // Log to Scion if applicable
-    const dataPayload = internalPayload.data;
-    if (isConsoleMessage(dataPayload) &&
-        dataPayload[CONSOLE_CAMPAIGN_ANALYTICS_ENABLED] === '1') {
-        await logToScion(messaging, internalPayload.messageType, dataPayload);
-    }
-}
-
-const name = "@firebase/messaging";
-const version = "0.12.17";
-
-/**
- * @license
- * Copyright 2020 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-const WindowMessagingFactory = (container) => {
+const SwMessagingFactory = (container) => {
     const messaging = new MessagingService(container.getProvider('app').getImmediate(), container.getProvider('installations-internal').getImmediate(), container.getProvider('analytics-internal'));
-    navigator.serviceWorker.addEventListener('message', e => messageEventListener(messaging, e));
+    self.addEventListener('push', e => {
+        e.waitUntil(onPush(e, messaging));
+    });
+    self.addEventListener('pushsubscriptionchange', e => {
+        e.waitUntil(onSubChange(e, messaging));
+    });
+    self.addEventListener('notificationclick', e => {
+        e.waitUntil(onNotificationClick(e));
+    });
     return messaging;
 };
-const WindowMessagingInternalFactory = (container) => {
-    const messaging = container
-        .getProvider('messaging')
-        .getImmediate();
-    const messagingInternal = {
-        getToken: (options) => getToken$1(messaging, options)
-    };
-    return messagingInternal;
-};
-function registerMessagingInWindow() {
-    app._registerComponent(new component.Component('messaging', WindowMessagingFactory, "PUBLIC" /* ComponentType.PUBLIC */));
-    app._registerComponent(new component.Component('messaging-internal', WindowMessagingInternalFactory, "PRIVATE" /* ComponentType.PRIVATE */));
-    app.registerVersion(name, version);
-    // BUILD_TARGET will be replaced by values like esm2017, cjs2017, etc during the compilation
-    app.registerVersion(name, version, 'cjs2017');
+/**
+ * The messaging instance registered in sw is named differently than that of in client. This is
+ * because both `registerMessagingInWindow` and `registerMessagingInSw` would be called in
+ * `messaging-compat` and component with the same name can only be registered once.
+ */
+function registerMessagingInSw() {
+    app._registerComponent(new component.Component('messaging-sw', SwMessagingFactory, "PUBLIC" /* ComponentType.PUBLIC */));
 }
 
 /**
@@ -1090,30 +1125,19 @@ function registerMessagingInWindow() {
  * limitations under the License.
  */
 /**
- * Checks if all required APIs exist in the browser.
+ * Checks whether all required APIs exist within SW Context
  * @returns a Promise that resolves to a boolean.
  *
  * @public
  */
-async function isWindowSupported() {
-    try {
-        // This throws if open() is unsupported, so adding it to the conditional
-        // statement below can cause an uncaught error.
-        await util.validateIndexedDBOpenable();
-    }
-    catch (e) {
-        return false;
-    }
+async function isSwSupported() {
     // firebase-js-sdk/issues/2393 reveals that idb#open in Safari iframe and Firefox private browsing
     // might be prohibited to run. In these contexts, an error would be thrown during the messaging
     // instantiating phase, informing the developers to import/call isSupported for special handling.
-    return (typeof window !== 'undefined' &&
-        util.isIndexedDBAvailable() &&
-        util.areCookiesEnabled() &&
-        'serviceWorker' in navigator &&
-        'PushManager' in window &&
-        'Notification' in window &&
-        'fetch' in window &&
+    return (util.isIndexedDBAvailable() &&
+        (await util.validateIndexedDBOpenable()) &&
+        'PushManager' in self &&
+        'Notification' in self &&
         ServiceWorkerRegistration.prototype.hasOwnProperty('showNotification') &&
         PushSubscription.prototype.hasOwnProperty('getKey'));
 }
@@ -1134,14 +1158,14 @@ async function isWindowSupported() {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-async function deleteToken$1(messaging) {
-    if (!navigator) {
-        throw ERROR_FACTORY.create("only-available-in-window" /* ErrorCode.AVAILABLE_IN_WINDOW */);
+function onBackgroundMessage$1(messaging, nextOrObserver) {
+    if (self.document !== undefined) {
+        throw ERROR_FACTORY.create("only-available-in-sw" /* ErrorCode.AVAILABLE_IN_SW */);
     }
-    if (!messaging.swRegistration) {
-        await registerDefaultSw(messaging);
-    }
-    return deleteTokenInternal(messaging);
+    messaging.onBackgroundMessageHandler = nextOrObserver;
+    return () => {
+        messaging.onBackgroundMessageHandler = null;
+    };
 }
 
 /**
@@ -1160,14 +1184,9 @@ async function deleteToken$1(messaging) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-function onMessage$1(messaging, nextOrObserver) {
-    if (!navigator) {
-        throw ERROR_FACTORY.create("only-available-in-window" /* ErrorCode.AVAILABLE_IN_WINDOW */);
-    }
-    messaging.onMessageHandler = nextOrObserver;
-    return () => {
-        messaging.onMessageHandler = null;
-    };
+function _setDeliveryMetricsExportedToBigQueryEnabled(messaging, enable) {
+    messaging.deliveryMetricsExportedToBigQueryEnabled =
+        enable;
 }
 
 /**
@@ -1193,84 +1212,74 @@ function onMessage$1(messaging, nextOrObserver) {
  *
  * @public
  */
-function getMessagingInWindow(app$1 = app.getApp()) {
+function getMessagingInSw(app$1 = app.getApp()) {
     // Conscious decision to make this async check non-blocking during the messaging instance
     // initialization phase for performance consideration. An error would be thrown latter for
     // developer's information. Developers can then choose to import and call `isSupported` for
     // special handling.
-    isWindowSupported().then(isSupported => {
-        // If `isWindowSupported()` resolved, but returned false.
+    isSwSupported().then(isSupported => {
+        // If `isSwSupported()` resolved, but returned false.
         if (!isSupported) {
             throw ERROR_FACTORY.create("unsupported-browser" /* ErrorCode.UNSUPPORTED_BROWSER */);
         }
     }, _ => {
-        // If `isWindowSupported()` rejected.
+        // If `isSwSupported()` rejected.
         throw ERROR_FACTORY.create("indexed-db-unsupported" /* ErrorCode.INDEXED_DB_UNSUPPORTED */);
     });
-    return app._getProvider(util.getModularInstance(app$1), 'messaging').getImmediate();
+    return app._getProvider(util.getModularInstance(app$1), 'messaging-sw').getImmediate();
 }
 /**
- * Subscribes the {@link Messaging} instance to push notifications. Returns a Firebase Cloud
- * Messaging registration token that can be used to send push messages to that {@link Messaging}
- * instance.
- *
- * If notification permission isn't already granted, this method asks the user for permission. The
- * returned promise rejects if the user does not allow the app to show notifications.
+ * Called when a message is received while the app is in the background. An app is considered to be
+ * in the background if no active window is displayed.
  *
  * @param messaging - The {@link Messaging} instance.
- * @param options - Provides an optional vapid key and an optional service worker registration.
+ * @param nextOrObserver - This function, or observer object with `next` defined, is called when a
+ * message is received and the app is currently in the background.
  *
- * @returns The promise resolves with an FCM registration token.
+ * @returns To stop listening for messages execute this returned function
  *
  * @public
  */
-async function getToken(messaging, options) {
+function onBackgroundMessage(messaging, nextOrObserver) {
     messaging = util.getModularInstance(messaging);
-    return getToken$1(messaging, options);
+    return onBackgroundMessage$1(messaging, nextOrObserver);
 }
 /**
- * Deletes the registration token associated with this {@link Messaging} instance and unsubscribes
- * the {@link Messaging} instance from the push subscription.
+ * Enables or disables Firebase Cloud Messaging message delivery metrics export to BigQuery. By
+ * default, message delivery metrics are not exported to BigQuery. Use this method to enable or
+ * disable the export at runtime.
  *
- * @param messaging - The {@link Messaging} instance.
- *
- * @returns The promise resolves when the token has been successfully deleted.
+ * @param messaging - The `FirebaseMessaging` instance.
+ * @param enable - Whether Firebase Cloud Messaging should export message delivery metrics to
+ * BigQuery.
  *
  * @public
  */
-function deleteToken(messaging) {
+function experimentalSetDeliveryMetricsExportedToBigQueryEnabled(messaging, enable) {
     messaging = util.getModularInstance(messaging);
-    return deleteToken$1(messaging);
-}
-/**
- * When a push message is received and the user is currently on a page for your origin, the
- * message is passed to the page and an `onMessage()` event is dispatched with the payload of
- * the push message.
- *
- *
- * @param messaging - The {@link Messaging} instance.
- * @param nextOrObserver - This function, or observer object with `next` defined,
- *     is called when a message is received and the user is currently viewing your page.
- * @returns To stop listening for messages execute this returned function.
- *
- * @public
- */
-function onMessage(messaging, nextOrObserver) {
-    messaging = util.getModularInstance(messaging);
-    return onMessage$1(messaging, nextOrObserver);
+    return _setDeliveryMetricsExportedToBigQueryEnabled(messaging, enable);
 }
 
 /**
- * The Firebase Cloud Messaging Web SDK.
- * This SDK does not work in a Node.js environment.
+ * @license
+ * Copyright 2017 Google LLC
  *
- * @packageDocumentation
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-registerMessagingInWindow();
+registerMessagingInSw();
 
-exports.deleteToken = deleteToken;
-exports.getMessaging = getMessagingInWindow;
-exports.getToken = getToken;
-exports.isSupported = isWindowSupported;
-exports.onMessage = onMessage;
-//# sourceMappingURL=index.cjs.js.map
+exports.experimentalSetDeliveryMetricsExportedToBigQueryEnabled = experimentalSetDeliveryMetricsExportedToBigQueryEnabled;
+exports.getMessaging = getMessagingInSw;
+exports.isSupported = isSwSupported;
+exports.onBackgroundMessage = onBackgroundMessage;
+//# sourceMappingURL=index.sw.cjs.map

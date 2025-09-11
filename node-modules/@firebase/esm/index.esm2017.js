@@ -1,12 +1,8 @@
-'use strict';
-
-Object.defineProperty(exports, '__esModule', { value: true });
-
-require('@firebase/installations');
-var component = require('@firebase/component');
-var idb = require('idb');
-var util = require('@firebase/util');
-var app = require('@firebase/app');
+import '@firebase/installations';
+import { Component } from '@firebase/component';
+import { openDB, deleteDB } from 'idb';
+import { ErrorFactory, validateIndexedDBOpenable, isIndexedDBAvailable, areCookiesEnabled, getModularInstance } from '@firebase/util';
+import { _registerComponent, registerVersion, _getProvider, getApp } from '@firebase/app';
 
 /**
  * @license
@@ -129,7 +125,7 @@ async function migrateOldDatabase(senderId) {
         }
     }
     let tokenDetails = null;
-    const db = await idb.openDB(OLD_DB_NAME, OLD_DB_VERSION, {
+    const db = await openDB(OLD_DB_NAME, OLD_DB_VERSION, {
         upgrade: async (db, oldVersion, newVersion, upgradeTransaction) => {
             var _a;
             if (oldVersion < 2) {
@@ -198,9 +194,9 @@ async function migrateOldDatabase(senderId) {
     });
     db.close();
     // Delete all old databases.
-    await idb.deleteDB(OLD_DB_NAME);
-    await idb.deleteDB('fcm_vapid_details_db');
-    await idb.deleteDB('undefined');
+    await deleteDB(OLD_DB_NAME);
+    await deleteDB('fcm_vapid_details_db');
+    await deleteDB('undefined');
     return checkTokenDetails(tokenDetails) ? tokenDetails : null;
 }
 function checkTokenDetails(tokenDetails) {
@@ -247,7 +243,7 @@ const OBJECT_STORE_NAME = 'firebase-messaging-store';
 let dbPromise = null;
 function getDbPromise() {
     if (!dbPromise) {
-        dbPromise = idb.openDB(DATABASE_NAME, DATABASE_VERSION, {
+        dbPromise = openDB(DATABASE_NAME, DATABASE_VERSION, {
             upgrade: (upgradeDb, oldVersion) => {
                 // We don't use 'break' in this switch statement, the fall-through behavior is what we want,
                 // because if there are multiple versions between the old version and the current version, we
@@ -342,7 +338,7 @@ const ERROR_MAP = {
     ["use-vapid-key-after-get-token" /* ErrorCode.USE_VAPID_KEY_AFTER_GET_TOKEN */]: 'The usePublicVapidKey() method may only be called once and must be ' +
         'called before calling getToken() to ensure your VAPID key is used.'
 };
-const ERROR_FACTORY = new util.ErrorFactory('messaging', 'Messaging', ERROR_MAP);
+const ERROR_FACTORY = new ErrorFactory('messaging', 'Messaging', ERROR_MAP);
 
 /**
  * @license
@@ -1066,11 +1062,11 @@ const WindowMessagingInternalFactory = (container) => {
     return messagingInternal;
 };
 function registerMessagingInWindow() {
-    app._registerComponent(new component.Component('messaging', WindowMessagingFactory, "PUBLIC" /* ComponentType.PUBLIC */));
-    app._registerComponent(new component.Component('messaging-internal', WindowMessagingInternalFactory, "PRIVATE" /* ComponentType.PRIVATE */));
-    app.registerVersion(name, version);
+    _registerComponent(new Component('messaging', WindowMessagingFactory, "PUBLIC" /* ComponentType.PUBLIC */));
+    _registerComponent(new Component('messaging-internal', WindowMessagingInternalFactory, "PRIVATE" /* ComponentType.PRIVATE */));
+    registerVersion(name, version);
     // BUILD_TARGET will be replaced by values like esm2017, cjs2017, etc during the compilation
-    app.registerVersion(name, version, 'cjs2017');
+    registerVersion(name, version, 'esm2017');
 }
 
 /**
@@ -1099,7 +1095,7 @@ async function isWindowSupported() {
     try {
         // This throws if open() is unsupported, so adding it to the conditional
         // statement below can cause an uncaught error.
-        await util.validateIndexedDBOpenable();
+        await validateIndexedDBOpenable();
     }
     catch (e) {
         return false;
@@ -1108,8 +1104,8 @@ async function isWindowSupported() {
     // might be prohibited to run. In these contexts, an error would be thrown during the messaging
     // instantiating phase, informing the developers to import/call isSupported for special handling.
     return (typeof window !== 'undefined' &&
-        util.isIndexedDBAvailable() &&
-        util.areCookiesEnabled() &&
+        isIndexedDBAvailable() &&
+        areCookiesEnabled() &&
         'serviceWorker' in navigator &&
         'PushManager' in window &&
         'Notification' in window &&
@@ -1193,7 +1189,7 @@ function onMessage$1(messaging, nextOrObserver) {
  *
  * @public
  */
-function getMessagingInWindow(app$1 = app.getApp()) {
+function getMessagingInWindow(app = getApp()) {
     // Conscious decision to make this async check non-blocking during the messaging instance
     // initialization phase for performance consideration. An error would be thrown latter for
     // developer's information. Developers can then choose to import and call `isSupported` for
@@ -1207,7 +1203,7 @@ function getMessagingInWindow(app$1 = app.getApp()) {
         // If `isWindowSupported()` rejected.
         throw ERROR_FACTORY.create("indexed-db-unsupported" /* ErrorCode.INDEXED_DB_UNSUPPORTED */);
     });
-    return app._getProvider(util.getModularInstance(app$1), 'messaging').getImmediate();
+    return _getProvider(getModularInstance(app), 'messaging').getImmediate();
 }
 /**
  * Subscribes the {@link Messaging} instance to push notifications. Returns a Firebase Cloud
@@ -1225,7 +1221,7 @@ function getMessagingInWindow(app$1 = app.getApp()) {
  * @public
  */
 async function getToken(messaging, options) {
-    messaging = util.getModularInstance(messaging);
+    messaging = getModularInstance(messaging);
     return getToken$1(messaging, options);
 }
 /**
@@ -1239,7 +1235,7 @@ async function getToken(messaging, options) {
  * @public
  */
 function deleteToken(messaging) {
-    messaging = util.getModularInstance(messaging);
+    messaging = getModularInstance(messaging);
     return deleteToken$1(messaging);
 }
 /**
@@ -1256,7 +1252,7 @@ function deleteToken(messaging) {
  * @public
  */
 function onMessage(messaging, nextOrObserver) {
-    messaging = util.getModularInstance(messaging);
+    messaging = getModularInstance(messaging);
     return onMessage$1(messaging, nextOrObserver);
 }
 
@@ -1268,9 +1264,5 @@ function onMessage(messaging, nextOrObserver) {
  */
 registerMessagingInWindow();
 
-exports.deleteToken = deleteToken;
-exports.getMessaging = getMessagingInWindow;
-exports.getToken = getToken;
-exports.isSupported = isWindowSupported;
-exports.onMessage = onMessage;
-//# sourceMappingURL=index.cjs.js.map
+export { deleteToken, getMessagingInWindow as getMessaging, getToken, isWindowSupported as isSupported, onMessage };
+//# sourceMappingURL=index.esm2017.js.map
