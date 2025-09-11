@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+/**
+ * How many bytes to read each time when `ReadableStreamReader.read()` is
+ * called. Only applicable for byte streams that we control (e.g. those backed
+ * by an UInt8Array).
+ */
+export declare const DEFAULT_BYTES_PER_READ = 10240;
+/**
+ * Builds a `ByteStreamReader` from a UInt8Array.
+ * @param source - The data source to use.
+ * @param bytesPerRead - How many bytes each `read()` from the returned reader
+ *        will read.
+ */
+export declare function toByteStreamReaderHelper(source: Uint8Array, bytesPerRead?: number): ReadableStreamDefaultReader<Uint8Array>;

@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+import { BundleSource } from '../../util/bundle_reader';
+/**
+ * On web, a `ReadableStream` is wrapped around by a `ByteStreamReader`.
+ */
+export declare function toByteStreamReader(source: BundleSource, bytesPerRead: number): ReadableStreamDefaultReader<Uint8Array>;

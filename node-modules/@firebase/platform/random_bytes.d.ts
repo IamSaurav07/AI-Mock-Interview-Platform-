@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+/**
+ * Generates `nBytes` of random bytes.
+ *
+ * If `nBytes < 0` , an error will be thrown.
+ */
+export declare function randomBytes(nBytes: number): Uint8Array;

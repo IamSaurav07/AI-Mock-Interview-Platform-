@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+/** The Platform's 'window' implementation or null if not available. */
+export declare function getWindow(): Window | null;
+/** The Platform's 'document' implementation or null if not available. */
+export declare function getDocument(): Document | null;

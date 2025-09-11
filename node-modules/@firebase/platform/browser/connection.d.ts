@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+import { DatabaseInfo } from '../../core/database_info';
+import { Connection } from '../../remote/connection';
+import { ConnectivityMonitor } from '../../remote/connectivity_monitor';
+/** Initializes the WebChannelConnection for the browser. */
+export declare function newConnection(databaseInfo: DatabaseInfo): Connection;
+/** Return the Platform-specific connectivity monitor. */
+export declare function newConnectivityMonitor(): ConnectivityMonitor;

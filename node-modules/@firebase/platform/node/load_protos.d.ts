@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+import * as grpc from '@grpc/grpc-js';
+import { IConversionOptions, Root } from 'protobufjs';
+/** Used by tests so we can match @grpc/proto-loader behavior. */
+export declare const protoLoaderOptions: IConversionOptions;
+/**
+ * Loads the protocol buffer definitions for Firestore.
+ *
+ * @returns The GrpcObject representing our protos.
+ */
+export declare function loadProtos(): grpc.GrpcObject;
+/** Used by tests so we can directly create ProtobufJS proto message objects from JSON protos. */
+export declare function loadRawProtos(): Root;

@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+/** Converts a Base64 encoded string to a binary string. */
+export declare function decodeBase64(encoded: string): string;
+/** Converts a binary string to a Base64 encoded string. */
+export declare function encodeBase64(raw: string): string;
+/**
+ * True if and only if the Base64 conversion functions are available.
+ * @internal
+ */
+export declare function isBase64Available(): boolean;

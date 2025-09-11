@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
+import { Token } from '../../api/credentials';
+import { Stream } from '../../remote/connection';
+import { RestConnection } from '../../remote/rest_connection';
+import { StringMap } from '../../util/types';
+/**
+ * A Rest-based connection that relies on the native HTTP stack
+ * (e.g. `fetch` or a polyfill).
+ */
+export declare class FetchConnection extends RestConnection {
+    openStream<Req, Resp>(rpcName: string, token: Token | null): Stream<Req, Resp>;
+    protected performRPCRequest<Req, Resp>(rpcName: string, url: string, headers: StringMap, body: Req): Promise<Resp>;
 }
