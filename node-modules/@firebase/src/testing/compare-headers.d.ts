@@ -1,12 +1,6 @@
 /**
- * The Firebase Cloud Messaging Web SDK.
- * This SDK does not work in a Node.js environment.
- *
- * @packageDocumentation
- */
-/**
  * @license
- * Copyright 2017 Google LLC
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import '@firebase/installations';
-import { Messaging } from './interfaces/public-types';
-export { getToken, deleteToken, onMessage, getMessagingInWindow as getMessaging } from './api';
-export { isWindowSupported as isSupported } from './api/isSupported';
-export * from './interfaces/public-types';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'messaging': Messaging;
-    }
+import './setup';
+declare class HeadersWithEntries extends Headers {
+    entries?(): Iterable<[string, string]>;
 }
+export declare function compareHeaders(expectedHeaders: HeadersWithEntries, actualHeaders: HeadersWithEntries): void;
+export {};

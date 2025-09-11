@@ -1,10 +1,4 @@
 /**
- * The Firebase Cloud Messaging Web SDK.
- * This SDK does not work in a Node.js environment.
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -22,11 +16,11 @@
  */
 import '@firebase/installations';
 import { Messaging } from './interfaces/public-types';
-export { getToken, deleteToken, onMessage, getMessagingInWindow as getMessaging } from './api';
-export { isWindowSupported as isSupported } from './api/isSupported';
 export * from './interfaces/public-types';
+export { onBackgroundMessage, getMessagingInSw as getMessaging, experimentalSetDeliveryMetricsExportedToBigQueryEnabled } from './api';
+export { isSwSupported as isSupported } from './api/isSupported';
 declare module '@firebase/component' {
     interface NameServiceMapping {
-        'messaging': Messaging;
+        'messaging-sw': Messaging;
     }
 }
