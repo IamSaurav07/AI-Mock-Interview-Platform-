@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2017 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export interface Resolver<R> {
-    (value: R | Promise<R>): void;
-}
-export interface Rejecter {
-    (reason?: Error): void;
-}
-export declare class Deferred<R> {
-    promise: Promise<R>;
-    resolve: Resolver<R>;
-    reject: Rejecter;
-    constructor();
+import { Persistence } from '../../../src/local/persistence';
+import { ByteString } from '../../../src/util/byte_string';
+/**
+ * A wrapper around a GlobalsCache that automatically creates a
+ * transaction around every operation to reduce test boilerplate.
+ */
+export declare class TestGlobalsCache {
+    private readonly persistence;
+    private readonly cache;
+    constructor(persistence: Persistence);
+    getSessionToken(): Promise<ByteString>;
+    setSessionToken(sessionToken: ByteString): Promise<void>;
 }

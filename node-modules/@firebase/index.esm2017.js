@@ -1,13 +1,9 @@
-'use strict';
-
-Object.defineProperty(exports, '__esModule', { value: true });
-
-var app = require('@firebase/app');
-var component = require('@firebase/component');
-var logger = require('@firebase/logger');
-var util = require('@firebase/util');
-var bloomBlob = require('@firebase/webchannel-wrapper/bloom-blob');
-var webchannelBlob = require('@firebase/webchannel-wrapper/webchannel-blob');
+import { _registerComponent, registerVersion, _isFirebaseServerApp, _getProvider, getApp, _removeServiceInstance, SDK_VERSION } from '@firebase/app';
+import { Component } from '@firebase/component';
+import { Logger, LogLevel } from '@firebase/logger';
+import { FirebaseError, deepEqual, createMockUserToken, getModularInstance, getDefaultEmulatorHostnameAndPort, getGlobal, isIndexedDBAvailable, getUA, isSafari } from '@firebase/util';
+import { Integer, Md5 } from '@firebase/webchannel-wrapper/bloom-blob';
+import { XhrIo, EventType, ErrorCode, createWebChannelTransport, getStatEventTarget, WebChannel, Event, Stat } from '@firebase/webchannel-wrapper/webchannel-blob';
 
 const S = "@firebase/firestore", D = "4.7.11";
 
@@ -89,7 +85,7 @@ let v = "11.6.1";
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const C = new logger.Logger("@firebase/firestore");
+const C = new Logger("@firebase/firestore");
 
 // Helper methods are needed because variables can't be exported as read/write
 function __PRIVATE_getLogLevel() {
@@ -113,14 +109,14 @@ function __PRIVATE_getLogLevel() {
 }
 
 function __PRIVATE_logDebug(e, ...t) {
-    if (C.logLevel <= logger.LogLevel.DEBUG) {
+    if (C.logLevel <= LogLevel.DEBUG) {
         const n = t.map(__PRIVATE_argToString);
         C.debug(`Firestore (${v}): ${e}`, ...n);
     }
 }
 
 function __PRIVATE_logError(e, ...t) {
-    if (C.logLevel <= logger.LogLevel.ERROR) {
+    if (C.logLevel <= LogLevel.ERROR) {
         const n = t.map(__PRIVATE_argToString);
         C.error(`Firestore (${v}): ${e}`, ...n);
     }
@@ -129,7 +125,7 @@ function __PRIVATE_logError(e, ...t) {
 /**
  * @internal
  */ function __PRIVATE_logWarn(e, ...t) {
-    if (C.logLevel <= logger.LogLevel.WARN) {
+    if (C.logLevel <= LogLevel.WARN) {
         const n = t.map(__PRIVATE_argToString);
         C.warn(`Firestore (${v}): ${e}`, ...n);
     }
@@ -356,7 +352,7 @@ t) {
     DATA_LOSS: "data-loss"
 };
 
-/** An error returned by a Firestore operation. */ class FirestoreError extends util.FirebaseError {
+/** An error returned by a Firestore operation. */ class FirestoreError extends FirebaseError {
     /** @hideconstructor */
     constructor(
     /**
@@ -596,7 +592,7 @@ class AppCheckToken {
 class __PRIVATE_FirebaseAppCheckTokenProvider {
     constructor(t, n) {
         this.V = n, this.forceRefresh = !1, this.appCheck = null, this.m = null, this.p = null, 
-        app._isFirebaseServerApp(t) && t.settings.appCheckToken && (this.p = t.settings.appCheckToken);
+        _isFirebaseServerApp(t) && t.settings.appCheckToken && (this.p = t.settings.appCheckToken);
     }
     start(e, t) {
         __PRIVATE_hardAssert(void 0 === this.o, 3512);
@@ -1095,7 +1091,7 @@ class Timestamp {
         return e.startsWith("__id") && e.endsWith("__");
     }
     static extractNumericId(e) {
-        return bloomBlob.Integer.fromString(e.substring(4, e.length - 2));
+        return Integer.fromString(e.substring(4, e.length - 2));
     }
 }
 
@@ -1746,10 +1742,10 @@ class __PRIVATE_SimpleDbTransaction {
     /** Deletes the specified database. */
     static delete(e) {
         __PRIVATE_logDebug(k, "Removing database:", e);
-        return __PRIVATE_wrapRequest(util.getGlobal().indexedDB.deleteDatabase(e)).toPromise();
+        return __PRIVATE_wrapRequest(getGlobal().indexedDB.deleteDatabase(e)).toPromise();
     }
     /** Returns true if IndexedDB is available in the current environment. */    static C() {
-        if (!util.isIndexedDBAvailable()) return !1;
+        if (!isIndexedDBAvailable()) return !1;
         if (__PRIVATE_SimpleDb.F()) return !0;
         // We extensively use indexed array values and compound keys,
         // which IE and Edge do not support. However, they still have indexedDB
@@ -1758,7 +1754,7 @@ class __PRIVATE_SimpleDbTransaction {
         // For tracking support of this feature, see here:
         // https://developer.microsoft.com/en-us/microsoft-edge/platform/status/indexeddbarraysandmultientrysupport/
         // Check the UA string to find out the browser.
-                const e = util.getUA(), t = __PRIVATE_SimpleDb.M(e), n = 0 < t && t < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
+                const e = getUA(), t = __PRIVATE_SimpleDb.M(e), n = 0 < t && t < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
         // IE 10
         // ua = 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)';
         // IE 11
@@ -1799,7 +1795,7 @@ class __PRIVATE_SimpleDbTransaction {
         // bug we're checking for should exist in iOS >= 12.2 and < 13, but for
         // whatever reason it's much harder to hit after 12.2 so we only proactively
         // log on 12.2.
-        12.2 === __PRIVATE_SimpleDb.M(util.getUA()) && __PRIVATE_logError("Firestore persistence suffers from a bug in iOS 12.2 Safari that may cause your app to stop working. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.");
+        12.2 === __PRIVATE_SimpleDb.M(getUA()) && __PRIVATE_logError("Firestore persistence suffers from a bug in iOS 12.2 Safari that may cause your app to stop working. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.");
     }
     /**
      * Opens the specified database, creating or upgrading it if necessary.
@@ -2105,7 +2101,7 @@ class __PRIVATE_SimpleDbTransaction {
 let q = !1;
 
 function __PRIVATE_checkForAndReportiOSError(e) {
-    const t = __PRIVATE_SimpleDb.M(util.getUA());
+    const t = __PRIVATE_SimpleDb.M(getUA());
     if (t >= 12.2 && t < 13) {
         const t = "An internal error was encountered in the Indexed Database server";
         if (e.message.indexOf(t) >= 0) {
@@ -6012,11 +6008,11 @@ let Rt = null;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const Vt = new bloomBlob.Integer([ 4294967295, 4294967295 ], 0);
+const Vt = new Integer([ 4294967295, 4294967295 ], 0);
 
 // Hash a string using md5 hashing algorithm.
 function __PRIVATE_getMd5HashValue(e) {
-    const t = __PRIVATE_newTextEncoder().encode(e), n = new bloomBlob.Md5;
+    const t = __PRIVATE_newTextEncoder().encode(e), n = new Md5;
     return n.update(t), new Uint8Array(n.digest());
 }
 
@@ -6024,7 +6020,7 @@ function __PRIVATE_getMd5HashValue(e) {
 // 2’s complement using little endian.
 function __PRIVATE_get64BitUints(e) {
     const t = new DataView(e.buffer), n = t.getUint32(0, /* littleEndian= */ !0), r = t.getUint32(4, /* littleEndian= */ !0), i = t.getUint32(8, /* littleEndian= */ !0), s = t.getUint32(12, /* littleEndian= */ !0);
-    return [ new bloomBlob.Integer([ n, r ], 0), new bloomBlob.Integer([ i, s ], 0) ];
+    return [ new Integer([ n, r ], 0), new Integer([ i, s ], 0) ];
 }
 
 class BloomFilter {
@@ -6039,15 +6035,15 @@ class BloomFilter {
         throw new __PRIVATE_BloomFilterError(`Invalid padding when bitmap length is 0: ${t}`);
         this.pe = 8 * e.length - t, 
         // Set the bit count in Integer to avoid repetition in mightContain().
-        this.ye = bloomBlob.Integer.fromNumber(this.pe);
+        this.ye = Integer.fromNumber(this.pe);
     }
     // Calculate the ith hash value based on the hashed 64bit integers,
     // and calculate its corresponding bit index in the bitmap to be checked.
     we(e, t, n) {
         // Calculate hashed value h(i) = h1 + (i * h2).
-        let r = e.add(t.multiply(bloomBlob.Integer.fromNumber(n)));
+        let r = e.add(t.multiply(Integer.fromNumber(n)));
         // Wrap if hash value overflow 64bit.
-                return 1 === r.compare(Vt) && (r = new bloomBlob.Integer([ r.getBits(0), r.getBits(1) ], 0)), 
+                return 1 === r.compare(Vt) && (r = new Integer([ r.getBits(0), r.getBits(1) ], 0)), 
         r.modulo(this.ye).toNumber();
     }
     // Return whether the bit on the given index in the bitmap is set to 1.
@@ -10040,7 +10036,7 @@ function __PRIVATE_bufferEntryComparator([e, t], [n, r]) {
         r = this.params.maximumSequenceNumbersToCollect) : r = t, s = Date.now(), this.nthSequenceNumber(e, r)))).next((r => (n = r, 
         o = Date.now(), this.removeTargets(e, n, t)))).next((t => (i = t, _ = Date.now(), 
         this.removeOrphanedDocuments(e, n)))).next((e => {
-            if (u = Date.now(), __PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG) {
+            if (u = Date.now(), __PRIVATE_getLogLevel() <= LogLevel.DEBUG) {
                 __PRIVATE_logDebug("LruGarbageCollector", `LRU Garbage Collection\n\tCounted targets in ${s - c}ms\n\tDetermined least recently used ${r} in ` + (o - s) + "ms\n" + `\tRemoved ${i} targets in ` + (_ - o) + "ms\n" + `\tRemoved ${e} documents in ` + (u - _) + "ms\n" + `Total Duration: ${u - c}ms`);
             }
             return PersistencePromise.resolve({
@@ -12482,7 +12478,7 @@ class __PRIVATE_IndexedDbPersistence {
             // to make sure it gets a chance to run.
             this.ns();
             const e = /(?:Version|Mobile)\/1[456]/;
-            util.isSafari() && (navigator.appVersion.match(e) || navigator.userAgent.match(e)) && 
+            isSafari() && (navigator.appVersion.match(e) || navigator.userAgent.match(e)) && 
             // On Safari 14, 15, and 16, we do not run any cleanup actions as it might
             // trigger a bug that prevents Safari from re-opening IndexedDB during
             // the next page load.
@@ -12702,7 +12698,7 @@ class __PRIVATE_QueryEngine {
             // These values were derived from an experiment where several members of the
             // Firestore SDK team ran a performance test in various environments.
             // Googlers can see b/299284287 for details.
-            return util.isSafari() ? 8 : __PRIVATE_getAndroidVersion(util.getUA()) > 0 ? 6 : 4;
+            return isSafari() ? 8 : __PRIVATE_getAndroidVersion(getUA()) > 0 ? 6 : 4;
         }();
     }
     /** Sets the document view to query against. */    initialize(e, t) {
@@ -12730,9 +12726,9 @@ class __PRIVATE_QueryEngine {
         })).next((() => i.result));
     }
     gs(e, t, n, r) {
-        return n.documentReadCount < this.Es ? (__PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "SDK will not create cache indexes for query:", __PRIVATE_stringifyQuery(t), "since it only creates cache indexes for collection contains", "more than or equal to", this.Es, "documents"), 
-        PersistencePromise.resolve()) : (__PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Query:", __PRIVATE_stringifyQuery(t), "scans", n.documentReadCount, "local documents and returns", r, "documents as results."), 
-        n.documentReadCount > this.ds * r ? (__PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "The SDK decides to create cache indexes for query:", __PRIVATE_stringifyQuery(t), "as using cache indexes may help improve performance."), 
+        return n.documentReadCount < this.Es ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "SDK will not create cache indexes for query:", __PRIVATE_stringifyQuery(t), "since it only creates cache indexes for collection contains", "more than or equal to", this.Es, "documents"), 
+        PersistencePromise.resolve()) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Query:", __PRIVATE_stringifyQuery(t), "scans", n.documentReadCount, "local documents and returns", r, "documents as results."), 
+        n.documentReadCount > this.ds * r ? (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "The SDK decides to create cache indexes for query:", __PRIVATE_stringifyQuery(t), "as using cache indexes may help improve performance."), 
         this.indexManager.createTargetIndexes(e, __PRIVATE_queryToTarget(t))) : PersistencePromise.resolve());
     }
     /**
@@ -12768,7 +12764,7 @@ class __PRIVATE_QueryEngine {
      */    Vs(e, t, n, r) {
         return __PRIVATE_queryMatchesAllDocuments(t) || r.isEqual(SnapshotVersion.min()) ? PersistencePromise.resolve(null) : this.As.getDocuments(e, n).next((i => {
             const s = this.ps(t, i);
-            return this.ys(t, s, n, r) ? PersistencePromise.resolve(null) : (__PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Re-using previous result from %s to execute query: %s", r.toString(), __PRIVATE_stringifyQuery(t)), 
+            return this.ys(t, s, n, r) ? PersistencePromise.resolve(null) : (__PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Re-using previous result from %s to execute query: %s", r.toString(), __PRIVATE_stringifyQuery(t)), 
             this.ws(e, s, t, __PRIVATE_newIndexOffsetSuccessorFromReadTime(r, B)).next((e => e)));
         }));
         // Queries that have never seen a snapshot without limbo free documents
@@ -12813,7 +12809,7 @@ class __PRIVATE_QueryEngine {
         return !!i && (i.hasPendingWrites || i.version.compareTo(r) > 0);
     }
     fs(e, t, n) {
-        return __PRIVATE_getLogLevel() <= logger.LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Using full collection scan to execute query:", __PRIVATE_stringifyQuery(t)), 
+        return __PRIVATE_getLogLevel() <= LogLevel.DEBUG && __PRIVATE_logDebug("QueryEngine", "Using full collection scan to execute query:", __PRIVATE_stringifyQuery(t)), 
         this.As.getDocumentsMatchingQuery(e, t, IndexOffset.min(), n);
     }
     /**
@@ -14163,21 +14159,21 @@ class __PRIVATE_WebChannelConnection extends __PRIVATE_RestConnection {
     Ko(e, t, n, r) {
         const i = __PRIVATE_generateUniqueDebugId();
         return new Promise(((s, o) => {
-            const _ = new webchannelBlob.XhrIo;
-            _.setWithCredentials(!0), _.listenOnce(webchannelBlob.EventType.COMPLETE, (() => {
+            const _ = new XhrIo;
+            _.setWithCredentials(!0), _.listenOnce(EventType.COMPLETE, (() => {
                 try {
                     switch (_.getLastErrorCode()) {
-                      case webchannelBlob.ErrorCode.NO_ERROR:
+                      case ErrorCode.NO_ERROR:
                         const t = _.getResponseJson();
                         __PRIVATE_logDebug(Gt, `XHR for RPC '${e}' ${i} received:`, JSON.stringify(t)), 
                         s(t);
                         break;
 
-                      case webchannelBlob.ErrorCode.TIMEOUT:
+                      case ErrorCode.TIMEOUT:
                         __PRIVATE_logDebug(Gt, `RPC '${e}' ${i} timed out`), o(new FirestoreError(F.DEADLINE_EXCEEDED, "Request time out"));
                         break;
 
-                      case webchannelBlob.ErrorCode.HTTP_ERROR:
+                      case ErrorCode.HTTP_ERROR:
                         const n = _.getStatus();
                         if (__PRIVATE_logDebug(Gt, `RPC '${e}' ${i} failed with status:`, n, "response text:", _.getResponseText()), 
                         n > 0) {
@@ -14214,7 +14210,7 @@ class __PRIVATE_WebChannelConnection extends __PRIVATE_RestConnection {
         }));
     }
     a_(e, t, n) {
-        const r = __PRIVATE_generateUniqueDebugId(), i = [ this.Lo, "/", "google.firestore.v1.Firestore", "/", e, "/channel" ], s = webchannelBlob.createWebChannelTransport(), o = webchannelBlob.getStatEventTarget(), _ = {
+        const r = __PRIVATE_generateUniqueDebugId(), i = [ this.Lo, "/", "google.firestore.v1.Firestore", "/", e, "/channel" ], s = createWebChannelTransport(), o = getStatEventTarget(), _ = {
             // Required for backend stickiness, routing behavior is based on this
             // parameter.
             httpSessionIdParam: "gsessionid",
@@ -14286,15 +14282,15 @@ class __PRIVATE_WebChannelConnection extends __PRIVATE_RestConnection {
         // exception and rethrow using a setTimeout so they become visible again.
         // Note that eventually this function could go away if we are confident
         // enough the code is exception free.
-                return __PRIVATE_unguardedEventListen(c, webchannelBlob.WebChannel.EventType.OPEN, (() => {
+                return __PRIVATE_unguardedEventListen(c, WebChannel.EventType.OPEN, (() => {
             h || (__PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} transport opened.`), P.t_());
-        })), __PRIVATE_unguardedEventListen(c, webchannelBlob.WebChannel.EventType.CLOSE, (() => {
+        })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.CLOSE, (() => {
             h || (h = !0, __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} transport closed`), 
             P.r_());
-        })), __PRIVATE_unguardedEventListen(c, webchannelBlob.WebChannel.EventType.ERROR, (t => {
+        })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.ERROR, (t => {
             h || (h = !0, __PRIVATE_logWarn(Gt, `RPC '${e}' stream ${r} transport errored. Name:`, t.name, "Message:", t.message), 
             P.r_(new FirestoreError(F.UNAVAILABLE, "The operation could not be completed")));
-        })), __PRIVATE_unguardedEventListen(c, webchannelBlob.WebChannel.EventType.MESSAGE, (t => {
+        })), __PRIVATE_unguardedEventListen(c, WebChannel.EventType.MESSAGE, (t => {
             var n;
             if (!h) {
                 const i = t.data[0];
@@ -14327,8 +14323,8 @@ class __PRIVATE_WebChannelConnection extends __PRIVATE_RestConnection {
                     h = !0, P.r_(new FirestoreError(n, i)), c.close();
                 } else __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} received:`, i), P.i_(i);
             }
-        })), __PRIVATE_unguardedEventListen(o, webchannelBlob.Event.STAT_EVENT, (t => {
-            t.stat === webchannelBlob.Stat.PROXY ? __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} detected buffering proxy`) : t.stat === webchannelBlob.Stat.NOPROXY && __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} detected no buffering proxy`);
+        })), __PRIVATE_unguardedEventListen(o, Event.STAT_EVENT, (t => {
+            t.stat === Stat.PROXY ? __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} detected buffering proxy`) : t.stat === Stat.NOPROXY && __PRIVATE_logDebug(Gt, `RPC '${e}' stream ${r} detected no buffering proxy`);
         })), setTimeout((() => {
             // Technically we could/should wait for the WebChannel opened event,
             // but because we want to send the first message with the WebChannel
@@ -18665,12 +18661,12 @@ class Firestore$1 {
     });
     // No-op if the new configuration matches the current configuration. This supports SSR
     // enviornments which might call `connectFirestoreEmulator` multiple times as a standard practice.
-        if (!util.deepEqual(a, o) && (e._setSettings(a), r.mockUserToken)) {
+        if (!deepEqual(a, o) && (e._setSettings(a), r.mockUserToken)) {
         let t, n;
         if ("string" == typeof r.mockUserToken) t = r.mockUserToken, n = User.MOCK_USER; else {
             // Let createMockUserToken validate first (catches common mistakes like
             // invalid field "uid" and missing field "sub" / "user_id".)
-            t = util.createMockUserToken(r.mockUserToken, null === (i = e._app) || void 0 === i ? void 0 : i.options.projectId);
+            t = createMockUserToken(r.mockUserToken, null === (i = e._app) || void 0 === i ? void 0 : i.options.projectId);
             const s = r.mockUserToken.sub || r.mockUserToken.user_id;
             if (!s) throw new FirestoreError(F.INVALID_ARGUMENT, "mockUserToken must contain 'sub' or 'user_id' field!");
             n = new User(s);
@@ -18787,7 +18783,7 @@ class Firestore$1 {
 }
 
 function collection(e, t, ...n) {
-    if (e = util.getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t), e instanceof Firestore$1) {
+    if (e = getModularInstance(e), __PRIVATE_validateNonEmptyArgument("collection", "path", t), e instanceof Firestore$1) {
         const r = ResourcePath.fromString(t, ...n);
         return __PRIVATE_validateCollectionPath(r), new CollectionReference(e, /* converter= */ null, r);
     }
@@ -18821,7 +18817,7 @@ function collection(e, t, ...n) {
 }
 
 function doc(e, t, ...n) {
-    if (e = util.getModularInstance(e), 
+    if (e = getModularInstance(e), 
     // We allow omission of 'pathString' but explicitly prohibit passing in both
     // 'undefined' and 'null'.
     1 === arguments.length && (t = __PRIVATE_AutoId.newId()), __PRIVATE_validateNonEmptyArgument("doc", "path", t), 
@@ -18845,7 +18841,7 @@ function doc(e, t, ...n) {
  * @returns true if the references point to the same location in the same
  * Firestore database.
  */ function refEqual(e, t) {
-    return e = util.getModularInstance(e), t = util.getModularInstance(t), (e instanceof DocumentReference || e instanceof CollectionReference) && (t instanceof DocumentReference || t instanceof CollectionReference) && (e.firestore === t.firestore && e.path === t.path && e.converter === t.converter);
+    return e = getModularInstance(e), t = getModularInstance(t), (e instanceof DocumentReference || e instanceof CollectionReference) && (t instanceof DocumentReference || t instanceof CollectionReference) && (e.firestore === t.firestore && e.path === t.path && e.converter === t.converter);
 }
 
 /**
@@ -18857,7 +18853,7 @@ function doc(e, t, ...n) {
  * @returns true if the references point to the same location in the same
  * Firestore database.
  */ function queryEqual(e, t) {
-    return e = util.getModularInstance(e), t = util.getModularInstance(t), e instanceof Query && t instanceof Query && (e.firestore === t.firestore && __PRIVATE_queryEquals(e._query, t._query) && e.converter === t.converter);
+    return e = getModularInstance(e), t = getModularInstance(t), e instanceof Query && t instanceof Query && (e.firestore === t.firestore && __PRIVATE_queryEquals(e._query, t._query) && e.converter === t.converter);
 }
 
 /**
@@ -19229,12 +19225,12 @@ class LoadBundleTask {
  * @returns A newly initialized {@link Firestore} instance.
  */ function initializeFirestore(e, t, n) {
     n || (n = it);
-    const r = app._getProvider(e, "firestore");
+    const r = _getProvider(e, "firestore");
     if (r.isInitialized(n)) {
         const e = r.getImmediate({
             identifier: n
         }), i = r.getOptions(n);
-        if (util.deepEqual(i, t)) return e;
+        if (deepEqual(i, t)) return e;
         throw new FirestoreError(F.FAILED_PRECONDITION, "initializeFirestore() has already been called with different options. To avoid this error, call initializeFirestore() with the same options as when it was originally called, or call getFirestore() to return the already initialized instance.");
     }
     if (void 0 !== t.cacheSizeBytes && void 0 !== t.localCache) throw new FirestoreError(F.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
@@ -19246,11 +19242,11 @@ class LoadBundleTask {
 }
 
 function getFirestore(e, n) {
-    const r = "object" == typeof e ? e : app.getApp(), i = "string" == typeof e ? e : n || it, s = app._getProvider(r, "firestore").getImmediate({
+    const r = "object" == typeof e ? e : getApp(), i = "string" == typeof e ? e : n || it, s = _getProvider(r, "firestore").getImmediate({
         identifier: i
     });
     if (!s._initialized) {
-        const e = util.getDefaultEmulatorHostnameAndPort("firestore");
+        const e = getDefaultEmulatorHostnameAndPort("firestore");
         e && connectFirestoreEmulator(s, ...e);
     }
     return s;
@@ -19466,7 +19462,7 @@ function enableIndexedDbPersistence(e, t) {
  * @returns A `Promise` that is resolved when the instance has been successfully
  * terminated.
  */ function terminate(e) {
-    return app._removeServiceInstance(e.app, "firestore", e._databaseId.database), e._delete();
+    return _removeServiceInstance(e.app, "firestore", e._databaseId.database), e._delete();
 }
 
 /**
@@ -20066,7 +20062,7 @@ class __PRIVATE_ArrayUnionFieldValueImpl extends FieldValue {
         return new FieldTransform(e.path, r);
     }
     isEqual(e) {
-        return e instanceof __PRIVATE_ArrayUnionFieldValueImpl && util.deepEqual(this.Ac, e.Ac);
+        return e instanceof __PRIVATE_ArrayUnionFieldValueImpl && deepEqual(this.Ac, e.Ac);
     }
 }
 
@@ -20080,7 +20076,7 @@ class __PRIVATE_ArrayRemoveFieldValueImpl extends FieldValue {
         return new FieldTransform(e.path, r);
     }
     isEqual(e) {
-        return e instanceof __PRIVATE_ArrayRemoveFieldValueImpl && util.deepEqual(this.Ac, e.Ac);
+        return e instanceof __PRIVATE_ArrayRemoveFieldValueImpl && deepEqual(this.Ac, e.Ac);
     }
 }
 
@@ -20105,7 +20101,7 @@ class __PRIVATE_NumericIncrementFieldValueImpl extends FieldValue {
         const _ = __PRIVATE_fieldPathFromDotSeparatedString(t, e, n);
         // For Compat types, we have to "extract" the underlying types before
         // performing validation.
-                r = util.getModularInstance(r);
+                r = getModularInstance(r);
         const a = i.hc(_);
         if (r instanceof __PRIVATE_DeleteFieldValueImpl) 
         // Add it to the field mask, but don't add anything to updateData.
@@ -20131,7 +20127,7 @@ class __PRIVATE_NumericIncrementFieldValueImpl extends FieldValue {
         let n = a[e];
         // For Compat types, we have to "extract" the underlying types before
         // performing validation.
-                n = util.getModularInstance(n);
+                n = getModularInstance(n);
         const r = o.hc(t);
         if (n instanceof __PRIVATE_DeleteFieldValueImpl) 
         // Add it to the field mask, but don't add anything to updateData.
@@ -20166,7 +20162,7 @@ class __PRIVATE_NumericIncrementFieldValueImpl extends FieldValue {
     if (__PRIVATE_looksLikeJsonObject(
     // Unwrap the API type from the Compat SDK. This will return the API type
     // from firestore-exp.
-    e = util.getModularInstance(e))) return __PRIVATE_validatePlainObject("Unsupported field value:", t, e), 
+    e = getModularInstance(e))) return __PRIVATE_validatePlainObject("Unsupported field value:", t, e), 
     __PRIVATE_parseObject(e, t);
     if (e instanceof FieldValue) 
     // FieldValues usually parse into transforms (except deleteField())
@@ -20226,7 +20222,7 @@ class __PRIVATE_NumericIncrementFieldValueImpl extends FieldValue {
         }(e, t);
     }
     return function __PRIVATE_parseScalarValue(e, t) {
-        if (null === (e = util.getModularInstance(e))) return {
+        if (null === (e = getModularInstance(e))) return {
             nullValue: "NULL_VALUE"
         };
         if ("number" == typeof e) return toNumber(t.serializer, e);
@@ -20336,7 +20332,7 @@ function __PRIVATE_validatePlainObject(e, t, n) {
     if ((
     // If required, replace the FieldPath Compat class with the firestore-exp
     // FieldPath.
-    t = util.getModularInstance(t)) instanceof FieldPath) return t._internalPath;
+    t = getModularInstance(t)) instanceof FieldPath) return t._internalPath;
     if ("string" == typeof t) return __PRIVATE_fieldPathFromDotSeparatedString(e, t);
     throw __PRIVATE_createError("Field path arguments must be of type string or ", e, 
     /* hasConverter= */ !1, 
@@ -20873,7 +20869,7 @@ function endAt(...e) {
 }
 
 /** Helper function to create a bound from a document or fields */ function __PRIVATE_newQueryBoundFromDocOrFields(e, t, n, r) {
-    if (n[0] = util.getModularInstance(n[0]), n[0] instanceof DocumentSnapshot$1) return function __PRIVATE_newQueryBoundFromDocument(e, t, n, r, i) {
+    if (n[0] = getModularInstance(n[0]), n[0] instanceof DocumentSnapshot$1) return function __PRIVATE_newQueryBoundFromDocument(e, t, n, r, i) {
         if (!r) throw new FirestoreError(F.NOT_FOUND, `Can't use a DocumentSnapshot that doesn't exist for ${n}().`);
         const s = [];
         // Because people expect to continue/end a query at the exact document
@@ -20929,7 +20925,7 @@ function endAt(...e) {
 }
 
 function __PRIVATE_parseDocumentIdValue(e, t, n) {
-    if ("string" == typeof (n = util.getModularInstance(n))) {
+    if ("string" == typeof (n = getModularInstance(n))) {
         if ("" === n) throw new FirestoreError(F.INVALID_ARGUMENT, "Invalid query. When querying with documentId(), you must provide a valid document ID, but it was an empty string.");
         if (!__PRIVATE_isCollectionGroupQuery(t) && -1 !== n.indexOf("/")) throw new FirestoreError(F.INVALID_ARGUMENT, `Invalid query. When querying a collection by documentId(), you must provide a plain document ID, but '${n}' contains a '/' character.`);
         const r = t.path.child(ResourcePath.fromString(n));
@@ -21191,7 +21187,7 @@ class __PRIVATE_LiteUserDataWriter extends AbstractUserDataWriter {
  * @returns `true` if the objects are "equal", as defined above, or `false`
  * otherwise.
  */ function aggregateQuerySnapshotEqual(e, t) {
-    return queryEqual(e.query, t.query) && util.deepEqual(e.data(), t.data());
+    return queryEqual(e.query, t.query) && deepEqual(e.data(), t.data());
 }
 
 /**
@@ -21562,7 +21558,7 @@ function updateDoc(e, t, n, ...r) {
     o = "string" == typeof (
     // For Compat types, we have to "extract" the underlying types before
     // performing validation.
-    t = util.getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(s, "updateDoc", e._key, t, n, r) : __PRIVATE_parseUpdateData(s, "updateDoc", e._key, t);
+    t = getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(s, "updateDoc", e._key, t, n, r) : __PRIVATE_parseUpdateData(s, "updateDoc", e._key, t);
     return executeWrite(i, [ o.toMutation(e._key, Precondition.exists(!0)) ]);
 }
 
@@ -21592,7 +21588,7 @@ function updateDoc(e, t, n, ...r) {
 
 function onSnapshot(e, ...t) {
     var n, r, i;
-    e = util.getModularInstance(e);
+    e = getModularInstance(e);
     let s = {
         includeMetadataChanges: !1,
         source: "default"
@@ -21963,7 +21959,7 @@ class WriteBatch {
         // For Compat types, we have to "extract" the underlying types before
         // performing validation.
                 let s;
-        return s = "string" == typeof (t = util.getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "WriteBatch.update", i._key, t, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "WriteBatch.update", i._key, t), 
+        return s = "string" == typeof (t = getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "WriteBatch.update", i._key, t, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "WriteBatch.update", i._key, t), 
         this._mutations.push(s.toMutation(i._key, Precondition.exists(!0))), this;
     }
     /**
@@ -21997,7 +21993,7 @@ class WriteBatch {
 }
 
 function __PRIVATE_validateReference(e, t) {
-    if ((e = util.getModularInstance(e)).firestore !== t) throw new FirestoreError(F.INVALID_ARGUMENT, "Provided document reference is from a different Firestore instance.");
+    if ((e = getModularInstance(e)).firestore !== t) throw new FirestoreError(F.INVALID_ARGUMENT, "Provided document reference is from a different Firestore instance.");
     return e;
 }
 
@@ -22056,7 +22052,7 @@ function __PRIVATE_validateReference(e, t) {
         // For Compat types, we have to "extract" the underlying types before
         // performing validation.
                 let s;
-        return s = "string" == typeof (t = util.getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "Transaction.update", i._key, t, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "Transaction.update", i._key, t), 
+        return s = "string" == typeof (t = getModularInstance(t)) || t instanceof FieldPath ? __PRIVATE_parseUpdateVarargs(this._dataReader, "Transaction.update", i._key, t, n, r) : __PRIVATE_parseUpdateData(this._dataReader, "Transaction.update", i._key, t), 
         this._transaction.update(i._key, s), this;
     }
     /**
@@ -22533,7 +22529,7 @@ let un = null;
  */ !function __PRIVATE_registerFirestore(e, t = !0) {
     !function __PRIVATE_setSDKVersion(e) {
         v = e;
-    }(app.SDK_VERSION), app._registerComponent(new component.Component("firestore", ((e, {instanceIdentifier: n, options: r}) => {
+    }(SDK_VERSION), _registerComponent(new Component("firestore", ((e, {instanceIdentifier: n, options: r}) => {
         const i = e.getProvider("app").getImmediate(), s = new Firestore(new __PRIVATE_FirebaseAuthCredentialsProvider(e.getProvider("auth-internal")), new __PRIVATE_FirebaseAppCheckTokenProvider(i, e.getProvider("app-check-internal")), function __PRIVATE_databaseIdFromApp(e, t) {
             if (!Object.prototype.hasOwnProperty.apply(e.options, [ "projectId" ])) throw new FirestoreError(F.INVALID_ARGUMENT, '"projectId" not provided in firebase.initializeApp.');
             return new DatabaseId(e.options.projectId, t);
@@ -22541,125 +22537,10 @@ let un = null;
         return r = Object.assign({
             useFetchStreams: t
         }, r), s._setSettings(r), s;
-    }), "PUBLIC").setMultipleInstances(!0)), app.registerVersion(S, D, e), 
+    }), "PUBLIC").setMultipleInstances(!0)), registerVersion(S, D, e), 
     // BUILD_TARGET will be replaced by values like esm2017, cjs2017, etc during the compilation
-    app.registerVersion(S, D, "cjs2017");
+    registerVersion(S, D, "esm2017");
 }();
 
-exports.AbstractUserDataWriter = AbstractUserDataWriter;
-exports.AggregateField = AggregateField;
-exports.AggregateQuerySnapshot = AggregateQuerySnapshot;
-exports.Bytes = Bytes;
-exports.CACHE_SIZE_UNLIMITED = rn;
-exports.CollectionReference = CollectionReference;
-exports.DocumentReference = DocumentReference;
-exports.DocumentSnapshot = DocumentSnapshot;
-exports.FieldPath = FieldPath;
-exports.FieldValue = FieldValue;
-exports.Firestore = Firestore;
-exports.FirestoreError = FirestoreError;
-exports.GeoPoint = GeoPoint;
-exports.LoadBundleTask = LoadBundleTask;
-exports.PersistentCacheIndexManager = PersistentCacheIndexManager;
-exports.Query = Query;
-exports.QueryCompositeFilterConstraint = QueryCompositeFilterConstraint;
-exports.QueryConstraint = QueryConstraint;
-exports.QueryDocumentSnapshot = QueryDocumentSnapshot;
-exports.QueryEndAtConstraint = QueryEndAtConstraint;
-exports.QueryFieldFilterConstraint = QueryFieldFilterConstraint;
-exports.QueryLimitConstraint = QueryLimitConstraint;
-exports.QueryOrderByConstraint = QueryOrderByConstraint;
-exports.QuerySnapshot = QuerySnapshot;
-exports.QueryStartAtConstraint = QueryStartAtConstraint;
-exports.SnapshotMetadata = SnapshotMetadata;
-exports.Timestamp = Timestamp;
-exports.Transaction = Transaction;
-exports.VectorValue = VectorValue;
-exports.WriteBatch = WriteBatch;
-exports._AutoId = __PRIVATE_AutoId;
-exports._ByteString = ByteString;
-exports._DatabaseId = DatabaseId;
-exports._DocumentKey = DocumentKey;
-exports._EmptyAppCheckTokenProvider = __PRIVATE_EmptyAppCheckTokenProvider;
-exports._EmptyAuthCredentialsProvider = __PRIVATE_EmptyAuthCredentialsProvider;
-exports._FieldPath = FieldPath$1;
-exports._TestingHooks = TestingHooks;
-exports._cast = __PRIVATE_cast;
-exports._debugAssert = __PRIVATE_debugAssert;
-exports._internalAggregationQueryToProtoRunAggregationQueryRequest = _internalAggregationQueryToProtoRunAggregationQueryRequest;
-exports._internalQueryToProtoQueryTarget = _internalQueryToProtoQueryTarget;
-exports._isBase64Available = __PRIVATE_isBase64Available;
-exports._logWarn = __PRIVATE_logWarn;
-exports._validateIsNotUsedTogether = __PRIVATE_validateIsNotUsedTogether;
-exports.addDoc = addDoc;
-exports.aggregateFieldEqual = aggregateFieldEqual;
-exports.aggregateQuerySnapshotEqual = aggregateQuerySnapshotEqual;
-exports.and = and;
-exports.arrayRemove = arrayRemove;
-exports.arrayUnion = arrayUnion;
-exports.average = average;
-exports.clearIndexedDbPersistence = clearIndexedDbPersistence;
-exports.collection = collection;
-exports.collectionGroup = collectionGroup;
-exports.connectFirestoreEmulator = connectFirestoreEmulator;
-exports.count = count;
-exports.deleteAllPersistentCacheIndexes = deleteAllPersistentCacheIndexes;
-exports.deleteDoc = deleteDoc;
-exports.deleteField = deleteField;
-exports.disableNetwork = disableNetwork;
-exports.disablePersistentCacheIndexAutoCreation = disablePersistentCacheIndexAutoCreation;
-exports.doc = doc;
-exports.documentId = documentId;
-exports.enableIndexedDbPersistence = enableIndexedDbPersistence;
-exports.enableMultiTabIndexedDbPersistence = enableMultiTabIndexedDbPersistence;
-exports.enableNetwork = enableNetwork;
-exports.enablePersistentCacheIndexAutoCreation = enablePersistentCacheIndexAutoCreation;
-exports.endAt = endAt;
-exports.endBefore = endBefore;
-exports.ensureFirestoreConfigured = ensureFirestoreConfigured;
-exports.executeWrite = executeWrite;
-exports.getAggregateFromServer = getAggregateFromServer;
-exports.getCountFromServer = getCountFromServer;
-exports.getDoc = getDoc;
-exports.getDocFromCache = getDocFromCache;
-exports.getDocFromServer = getDocFromServer;
-exports.getDocs = getDocs;
-exports.getDocsFromCache = getDocsFromCache;
-exports.getDocsFromServer = getDocsFromServer;
-exports.getFirestore = getFirestore;
-exports.getPersistentCacheIndexManager = getPersistentCacheIndexManager;
-exports.increment = increment;
-exports.initializeFirestore = initializeFirestore;
-exports.limit = limit;
-exports.limitToLast = limitToLast;
-exports.loadBundle = loadBundle;
-exports.memoryEagerGarbageCollector = memoryEagerGarbageCollector;
-exports.memoryLocalCache = memoryLocalCache;
-exports.memoryLruGarbageCollector = memoryLruGarbageCollector;
-exports.namedQuery = namedQuery;
-exports.onSnapshot = onSnapshot;
-exports.onSnapshotsInSync = onSnapshotsInSync;
-exports.or = or;
-exports.orderBy = orderBy;
-exports.persistentLocalCache = persistentLocalCache;
-exports.persistentMultipleTabManager = persistentMultipleTabManager;
-exports.persistentSingleTabManager = persistentSingleTabManager;
-exports.query = query;
-exports.queryEqual = queryEqual;
-exports.refEqual = refEqual;
-exports.runTransaction = runTransaction;
-exports.serverTimestamp = serverTimestamp;
-exports.setDoc = setDoc;
-exports.setIndexConfiguration = setIndexConfiguration;
-exports.setLogLevel = setLogLevel;
-exports.snapshotEqual = snapshotEqual;
-exports.startAfter = startAfter;
-exports.startAt = startAt;
-exports.sum = sum;
-exports.terminate = terminate;
-exports.updateDoc = updateDoc;
-exports.vector = vector;
-exports.waitForPendingWrites = waitForPendingWrites;
-exports.where = where;
-exports.writeBatch = writeBatch;
-//# sourceMappingURL=index.cjs.js.map
+export { AbstractUserDataWriter, AggregateField, AggregateQuerySnapshot, Bytes, rn as CACHE_SIZE_UNLIMITED, CollectionReference, DocumentReference, DocumentSnapshot, FieldPath, FieldValue, Firestore, FirestoreError, GeoPoint, LoadBundleTask, PersistentCacheIndexManager, Query, QueryCompositeFilterConstraint, QueryConstraint, QueryDocumentSnapshot, QueryEndAtConstraint, QueryFieldFilterConstraint, QueryLimitConstraint, QueryOrderByConstraint, QuerySnapshot, QueryStartAtConstraint, SnapshotMetadata, Timestamp, Transaction, VectorValue, WriteBatch, __PRIVATE_AutoId as _AutoId, ByteString as _ByteString, DatabaseId as _DatabaseId, DocumentKey as _DocumentKey, __PRIVATE_EmptyAppCheckTokenProvider as _EmptyAppCheckTokenProvider, __PRIVATE_EmptyAuthCredentialsProvider as _EmptyAuthCredentialsProvider, FieldPath$1 as _FieldPath, TestingHooks as _TestingHooks, __PRIVATE_cast as _cast, __PRIVATE_debugAssert as _debugAssert, _internalAggregationQueryToProtoRunAggregationQueryRequest, _internalQueryToProtoQueryTarget, __PRIVATE_isBase64Available as _isBase64Available, __PRIVATE_logWarn as _logWarn, __PRIVATE_validateIsNotUsedTogether as _validateIsNotUsedTogether, addDoc, aggregateFieldEqual, aggregateQuerySnapshotEqual, and, arrayRemove, arrayUnion, average, clearIndexedDbPersistence, collection, collectionGroup, connectFirestoreEmulator, count, deleteAllPersistentCacheIndexes, deleteDoc, deleteField, disableNetwork, disablePersistentCacheIndexAutoCreation, doc, documentId, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence, enableNetwork, enablePersistentCacheIndexAutoCreation, endAt, endBefore, ensureFirestoreConfigured, executeWrite, getAggregateFromServer, getCountFromServer, getDoc, getDocFromCache, getDocFromServer, getDocs, getDocsFromCache, getDocsFromServer, getFirestore, getPersistentCacheIndexManager, increment, initializeFirestore, limit, limitToLast, loadBundle, memoryEagerGarbageCollector, memoryLocalCache, memoryLruGarbageCollector, namedQuery, onSnapshot, onSnapshotsInSync, or, orderBy, persistentLocalCache, persistentMultipleTabManager, persistentSingleTabManager, query, queryEqual, refEqual, runTransaction, serverTimestamp, setDoc, setIndexConfiguration, setLogLevel, snapshotEqual, startAfter, startAt, sum, terminate, updateDoc, vector, waitForPendingWrites, where, writeBatch };
+//# sourceMappingURL=index.esm2017.js.map
