@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * This will include all of the test files and compile them as needed
- *
- * Taken from karma-webpack source:
- * https://github.com/webpack-contrib/karma-webpack#alternative-usage
- */
-declare const testsContext: any;
-declare const browserTests: any;
+import { LocalStore } from '../../../src/local/local_store';
+import { Persistence } from '../../../src/local/persistence';
+import { CountingQueryEngine } from './counting_query_engine';
+export interface LocalStoreComponents {
+    queryEngine: CountingQueryEngine;
+    persistence: Persistence;
+    localStore: LocalStore;
+}

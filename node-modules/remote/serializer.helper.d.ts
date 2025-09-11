@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import * as api from '../../../src/protos/firestore_proto_api';
 /**
- * This will include all of the test files and compile them as needed
+ * Runs the serializer test with an optional ProtobufJS verification step
+ * (only provided in Node).
  *
- * Taken from karma-webpack source:
- * https://github.com/webpack-contrib/karma-webpack#alternative-usage
+ * These tests are initialized in 'serializer.browser.test.ts' and
+ * 'serializer.node.test.ts'.
  */
-declare const testsContext: any;
-declare const browserTests: any;
+export declare function serializerTest(protobufJsVerifier?: (jsonValue: api.Value) => void): void;

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2017 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Persistence } from '../../../src/local/persistence';
+import { ByteString } from '../../../src/util/byte_string';
 /**
- * This will include all of the test files and compile them as needed
- *
- * Taken from karma-webpack source:
- * https://github.com/webpack-contrib/karma-webpack#alternative-usage
+ * A wrapper around a GlobalsCache that automatically creates a
+ * transaction around every operation to reduce test boilerplate.
  */
-declare const testsContext: any;
-declare const browserTests: any;
+export declare class TestGlobalsCache {
+    private readonly persistence;
+    private readonly cache;
+    constructor(persistence: Persistence);
+    getSessionToken(): Promise<ByteString>;
+    setSessionToken(sessionToken: ByteString): Promise<void>;
+}
