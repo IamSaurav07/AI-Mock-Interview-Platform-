@@ -1,9 +1,4 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -19,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
-}
+import { JsonProtoSerializer } from '../remote/serializer';
+import { BundleReader } from './bundle_reader';
+export declare function newBundleReader(reader: ReadableStreamDefaultReader<Uint8Array>, serializer: JsonProtoSerializer): BundleReader;

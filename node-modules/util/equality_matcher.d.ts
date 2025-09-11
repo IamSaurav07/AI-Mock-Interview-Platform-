@@ -1,11 +1,6 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
- * Copyright 2020 Google LLC
+ * Copyright 2017 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
+/**
+ * Duck-typed interface for objects that have an isEqual() method.
+ *
+ * Note: This is copied from src/util/misc.ts to avoid importing private types.
+ */
+export interface Equatable<T> {
+    isEqual(other: T): boolean;
 }
+/**
+ * Custom equals override for types that have a free-standing equals functions
+ *  (such as `queryEquals()`).
+ */
+export interface CustomMatcher<T> {
+    equalsFn: (left: T, right: T) => boolean;
+    forType: Function;
+}
+export declare function addEqualityMatcher(...customMatchers: Array<CustomMatcher<any>>): void;

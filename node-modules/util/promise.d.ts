@@ -1,11 +1,6 @@
 /**
- * Cloud Firestore
- *
- * @packageDocumentation
- */
-/**
  * @license
- * Copyright 2020 Google LLC
+ * Copyright 2017 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Firestore } from './api/database';
-export * from './api';
-declare module '@firebase/component' {
-    interface NameServiceMapping {
-        'firestore': Firestore;
-    }
+export interface Resolver<R> {
+    (value: R | Promise<R>): void;
+}
+export interface Rejecter {
+    (reason?: Error): void;
+}
+export declare class Deferred<R> {
+    promise: Promise<R>;
+    resolve: Resolver<R>;
+    reject: Rejecter;
+    constructor();
 }
