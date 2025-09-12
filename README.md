@@ -1,19 +1,8 @@
-# @babel/helpers
-
-> Collection of helper functions used by Babel transforms.
-
-See our website [@babel/helpers](https://babeljs.io/docs/babel-helpers) for more information.
-
-## Install
-
-Using npm:
-
-```sh
-npm install --save-dev @babel/helpers
-```
-
-or using yarn:
-
-```sh
-yarn add @babel/helpers --dev
-```
+1.	AI Mock Interview Platform 	Jan ’25 – June ’25
+Full Stack Project(College Major Project)	
+•	Developed an AI-powered interview prep platform using React, Firebase, and Google Gemini AI.
+•	Built responsive UI with JavaScript, ShadCN UI, and Tailwind CSS.
+•	Deployed full-stack solution using Firebase Hosting and Cloud Functions
+•	Integrated speech-to-text (Web Speech API) and text-to-speech for accessibility with OAuth authentication for enhanced user experience
+•	NoSQL database with Firestore to store user profiles, interview history, and AI feedback
+•	Tech Stack: React, TypeScript, Firebase, Gemini AI, Tailwind CSS.
